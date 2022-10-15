@@ -1,0 +1,165 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "firstpublicipaddress",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "firstpublicipaddress"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "firstdnsnamejignesh"
+                }
+            }
+        },
+        {
+            "name": "[toLower('jigneshvmstorage')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2021-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "ubuntuVM1 Storage Account"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "name": "firstvm-nsg",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "firstvmnsgrule",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "firstvm-VirtualNetwork",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'firstvm-nsg')]"
+            ],
+            "tags": {
+                "displayName": "firstvm-VirtualNetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "firstvm-VirtualNetwork-Subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'firstvm-nsg')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "firstvm-NetworkInterface",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'firstvm-VirtualNetwork')]"
+            ],
+            "tags": {
+                "displayName": "firstvm-NetworkInterface"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'firstvm-VirtualNetwork', 'firstvm-VirtualNetwork-Subnet')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "firstVM",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2021-03-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'firstvm-NetworkInterface')]"
+            ],
+            "tags": {
+                "displayName": "firstvm"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B1ls"
+                },
+                "osProfile": {
+                    "computerName": "ubuntuVM1",
+                    "adminUsername": "adminUsername",
+                    "adminPassword": "adminPass123"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "16.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "ubuntuVM1-OSDisk",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'firstvm-NetworkInterface')]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false,
+                        "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts/', toLower('jigneshvmstorage'))).primaryEndpoints.blob]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
